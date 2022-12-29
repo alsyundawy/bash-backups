@@ -18,6 +18,9 @@ DESTPATH=/.localbackups/"$LOCALHN"
 DUPFULL=3
 # time to keep rdiff-backups before autoremoval
 RDIFKEEP=6W
+# directories to block from duplicity
+DIRECBLOCK=".kodi .var .steam .wine .gnupg .thunderbird .local/share/Steam \
+Videos Pictures Downloads"
 
 # begin script #
 
@@ -55,7 +58,15 @@ for user in /home/* ; do
 		mkdir -p "$DATADIRPATH"
 		chown "$CURUSR":"$CURUSR" "$DATADIRPATH"
 	fi
-	
+
+	# normal folders to block from duplicity backup and done in rdiff-backup
+
+	for dir in $DIRECBLOCK ; do
+		CURDIR=/home/"$dir"
+		[ -d "$CURDIR" ] || su -c "mkdir -p ${CURDIR}" "$CURUSR"
+		[ -f "$CURDIR"/.nobackup ] || su -c "touch ${CURDIR}/.nobackup" "$CURUSR"
+	done
+
 	# stage one create duplicity backup of small data
 	# .nobackup file in a given directory prevents it from being added to
 	# duplicity backup.
