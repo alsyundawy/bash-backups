@@ -1,0 +1,5 @@
+Basic backup scripts for the linux system.
+
+Usage is straightforward. The systemd services & timers run the appropriate
+script as needed. The defaults are every 4 hours for the user directories.
+Every 1 week for system tarballs. Script location defaults /usr/local/bin
