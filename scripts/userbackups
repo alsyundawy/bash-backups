@@ -106,7 +106,7 @@ for user in /home/* ; do
 
 	which rdiff-backup && RDIFFBACK=y
 
-	if [ "$RDIFBACK" = y ] ; then
+	if [ "$RDIFFBACK" = y ] ; then
 		su -c "rdiff-backup \
 			--include /home/${CURUSR}/.var \
 			--include /home/${CURUSR}/.kodi \
