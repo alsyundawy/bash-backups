@@ -1,0 +1,111 @@
+#!/bin/sh
+# tadaen sylvemane | jason gibson
+# loops through all folders in /home/* and checks
+# if folder = actual user. creates directories and
+# backs up as needed.
+#
+# requires dbus-x11 for the gsettings commands.
+
+# variables
+
+# determine version of linux used
+DISTVERSION=$(grep ^ID= /etc/os-release | cut -d= -f2)
+# hostname
+LOCALHN=$(uname -n)
+# backup target path
+DESTPATH=/.localbackups/"$LOCALHN"
+# number of full duplicity backups to keep before autoremoval
+DUPFULL=3
+# time to keep rdiff-backups before autoremoval
+RDIFKEEP=6W
+
+# begin script #
+
+# check if target mountpoint. prevents backing up to main drive
+
+mountpoint $(dirname "$DESTPATH") || exit 1
+
+# make target directory as needed
+
+[ -d "$DESTPATH"/"$DISTVERSION" ] || mkdir -p "$DESTPATH"/"$DISTVERSION"
+
+# loop through users in /home/*
+
+for user in /home/* ; do
+	CURUSR=$(basename "$user")
+	BUDIRPATH="$DESTPATH"/"$DISTVERSION"/"$CURUSR"
+	
+	# confirm folder = real user and is not a stray folder. clonezilla creates
+	# a partimag folder in /home. this avoids such.
+	
+	grep "$CURUSR" < /etc/passwd || continue
+	
+	# create backup directory and chown to proper user
+	
+	if [ ! -d "$BUDIRPATH" ] ; then
+		mkdir -p "$BUDIRPATH"
+		chown "$CURUSR":"$CURUSR" "$BUDIRPATH"
+	fi
+
+	# make large data directory
+
+	DATADIRPATH=$(dirname "$BUDIRPATH")/DATA/"$CURUSR"
+
+	if [ ! -d "$DATADIRPATH" ] ; then
+		mkdir -p "$DATADIRPATH"
+		chown "$CURUSR":"$CURUSR" "$DATADIRPATH"
+	fi
+	
+	# stage one create duplicity backup of small data
+	# .nobackup file in a given directory prevents it from being added to
+	# duplicity backup.
+	
+	su -c "duplicity \
+		--exclude-if-present .nobackup \
+		--full-if-older-than 30D \
+		--no-encryption \
+		--volsize=1024 \
+		/home/${CURUSR} \
+		file://${BUDIRPATH}" "$CURUSR"
+	
+	# stage two clean duplicity backups
+	
+	su -c "duplicity \
+		remove-all-but-n-full ${DUPFULL} \
+		--force \
+		file://${BUDIRPATH}" "$CURUSR"
+	
+	# stage three. set deja-dup to target backup folder so user doesn't have to
+	# manually do it. this depends on deja-dup being installed
+	
+	which deja-dup || continue
+	su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
+		dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
+		"$CURUSR"
+	
+	# make sure rdiff-backup is installed
+
+	which rdiff-backup || continue
+
+	# stage 4 create rdiff-backup of unchanging data
+
+	su -c "rdiff-backup \
+		--include /home/${CURUSR}/.var \
+		--include /home/${CURUSR}/.kodi \
+		--include /home/${CURUSR}/.steam \
+		--include /home/${CURUSR}/.local/share/Steam \
+		--include /home/${CURUSR}/.wine \
+		--include /home/${CURUSR}/Pictures \
+		--include /home/${CURUSR}/.thunderbird \
+		--include /home/${CURUSR}/.gnupg \
+		--exclude /home/${CURUSR} \
+		/home/${CURUSR} ${DATADIRPATH}" "$CURUSR"
+
+	# stage 5 clean rdiff-backups of unchanging data
+
+	su -c "rdiff-backup \
+		--remove-older-than ${RDIFKEEP} \
+		${DATADIRPATH}" "$CURUSR"
+done
+
+# end script #

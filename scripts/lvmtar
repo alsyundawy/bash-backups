@@ -1,0 +1,110 @@
+#!/bin/sh
+# tadaen sylvermane | jason gibson
+# tarball create with lvm snapshots for static consistency
+
+# variables #
+
+PATH="/usr/sbin:/usr/bin"
+# simple temp file for processing removal of backups more than $BU2KEEP
+TEMPFILE=/tmp/lvmtar.cleanup.tmp
+# target directory. mount is typically $(dirname "$BACKUPDIR")
+BACKUPDIR=/.localbackups/$(uname -n)
+# temp mount for lv snapshots for tar process
+TMPMNTDIR=/tmp/lvmtar
+# time of run
+NOW=$(date +%F-%H%M)
+# log file
+LOGLOC=/var/lvmtar/logs/"$NOW".lvmtar.log
+# volume group
+VGNAME=/dev/main
+# logical volumes to backup
+LVS="arch-var arch"
+# how many backups to keep. will autoremove oldest once this number is reached
+BU2KEEP=3
+
+# begin script #
+
+# create necessary directories
+
+[ -d $(dirname "$LOGLOC") ] || mkdir -p $(dirname "$LOGLOC")
+[ -d "$TMPMNTDIR" ] || mkdir -p "$TMPMNTDIR"
+
+# if target not mounted exit
+
+mountpoint $(dirname "$BACKUPDIR") || exit 1
+
+# loop through $LVS in turn
+
+for lv in $LVS ; do
+	# snapshot failure to create
+
+	if ! lvcreate -n $(basename "$lv")-tartmp -s -L +5g "$VGNAME"/"$lv" ; then
+		echo "failed to create snapshot. exiting" >> "$LOGLOC"
+		exit 1
+	fi
+
+	# mount created
+
+	mount "$VGNAME"/"$lv"-tartmp "$TMPMNTDIR"
+
+	# failure to mount	
+
+	if [ "$?" != 0 ] ; then
+		echo "failed to mount snapshot. exiting" >> "$LOGLOC"
+		lvremove -y "$VGNAME"/"$lv"-tartmp
+		wait
+		exit 1
+	fi
+
+	# create tarball
+
+	tar -cvpf "$BACKUPDIR"/"$lv"."$NOW".tar \
+		--exclude "$TMPMNTDIR"/$(dirname "$BACKUPDIR")/* \
+		--exclude "$TMPMNTDIR"/var/cache/apt/archives/* \
+		--exclude "$TMPMNTDIR"/var/lib/apt/lists/* \
+		--exclude "$TMPMNTDIR"/mnt/* \
+		--exclude "$TMPMNTDIR"/media/* \		
+		--exclude "$TMPMNTDIR"/proc/* \
+		--exclude "$TMPMNTDIR"/dev/* \
+		--exclude "$TMPMNTDIR"/sys/* \
+		--exclude "$TMPMNTDIR"/tmp/* \
+		--exclude "$TMPMNTDIR"/run/* \
+		--exclude "$TMPMNTDIR"/snapraid/* \
+		--exclude "$TMPMNTDIR"/backups/* \
+		--exclude "$TMPMNTDIR"/data/* \
+		--exclude "$TMPMNTDIR"/swap.img \
+		--exclude "$TMPMNTDIR"/.swapfile \
+		--exclude "$TMPMNTDIR"/home/*/Videos \
+		--exclude "$TMPMNTDIR"/home/*/Downloads \
+		--exclude "$TMPMNTDIR"/*/Videos \
+		--exclude "$TMPMNTDIR"/*/Downloads \
+		--one-file-system "$TMPMNTDIR"
+	wait
+
+	# umount snapshot & remove
+
+	umount "$TMPMNTDIR"
+	wait
+	lvremove -y "$VGNAME"/"$lv"-tartmp
+
+	# creates list of most recent backups
+
+	[ -e "$TEMPFILE" ] && rm "$TEMPFILE"
+	for existing in "$BACKUPDIR"/"$lv".*.tar ; do
+		echo "$existing" >> "$TEMPFILE"
+	done
+
+	# removes oldest backups and keeps most recent $BU2KEEP regardless of age
+
+	if [ $(wc -l < "$TEMPFILE") -gt "$BU2KEEP" ] ; then
+		for i in $(head -n 1 < "$TEMPFILE") ; do
+			rm "$i"
+		done
+	fi
+
+	# cleans old log files
+
+	find "$LOGLOC"/ -name '*.log' -mtime +30 -exec rm {} \;
+done
+
+# end script #

@@ -1,0 +1,11 @@
+[Unit]
+Description = Execute user directory backups
+
+[Service]
+Type = oneshot
+ExecStart = /usr/bin/systemd-inhibit --who=root --mode=block /usr/local/bin/userbackups
+User = root
+Group = root
+
+[Install]
+WantedBy = multi-user.target
