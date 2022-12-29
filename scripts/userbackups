@@ -62,7 +62,7 @@ for user in /home/* ; do
 	# normal folders to block from duplicity backup and done in rdiff-backup
 
 	for dir in $DIRECBLOCK ; do
-		CURDIR=/home/"$dir"
+		CURDIR=/home/"$CURUSR"/"$dir"
 		[ -d "$CURDIR" ] || su -c "mkdir -p ${CURDIR}" "$CURUSR"
 		[ -f "$CURDIR"/.nobackup ] || su -c "touch ${CURDIR}/.nobackup" "$CURUSR"
 	done
