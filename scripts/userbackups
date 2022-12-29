@@ -91,7 +91,7 @@ for user in /home/* ; do
 	fi
 	
 	# stage three. set deja-dup to target backup folder so user doesn't have to
-	# manually do it. this depends on deja-dup being installed
+	# manually do it. this depends on deja-dup & dbus-x11 being installed
 	
 	which deja-dup && DEJABACK=y
 	
