@@ -71,52 +71,61 @@ for user in /home/* ; do
 	# .nobackup file in a given directory prevents it from being added to
 	# duplicity backup.
 	
-	su -c "duplicity \
-		--exclude-if-present .nobackup \
-		--full-if-older-than 30D \
-		--no-encryption \
-		--volsize=1024 \
-		/home/${CURUSR} \
-		file://${BUDIRPATH}" "$CURUSR"
-	
-	# stage two clean duplicity backups
-	
-	su -c "duplicity \
-		remove-all-but-n-full ${DUPFULL} \
-		--force \
-		file://${BUDIRPATH}" "$CURUSR"
+	which duplicity && DUPBACK=y
+
+	if [ "$DUPBACK" = y ] ; then
+		su -c "duplicity \
+			--exclude-if-present .nobackup \
+			--full-if-older-than 30D \
+			--no-encryption \
+			--volsize=1024 \
+			/home/${CURUSR} \
+			file://${BUDIRPATH}" "$CURUSR"
+		
+		# stage two clean duplicity backups
+		
+		su -c "duplicity \
+			remove-all-but-n-full ${DUPFULL} \
+			--force \
+			file://${BUDIRPATH}" "$CURUSR"
+	fi
 	
 	# stage three. set deja-dup to target backup folder so user doesn't have to
 	# manually do it. this depends on deja-dup being installed
 	
-	which deja-dup || continue
-	su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
+	which deja-dup && DEJABACK=y
+	
+	if [ "$DEJABACK" = y ] ; then
+		su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
 		dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
 		"$CURUSR"
+	fi
 	
-	# make sure rdiff-backup is installed
+	# stage 4 make sure rdiff-backup is installed & create backup of rarely 
+	# changed data
 
-	which rdiff-backup || continue
+	which rdiff-backup && RDIFFBACK=y
 
-	# stage 4 create rdiff-backup of unchanging data
-
-	su -c "rdiff-backup \
-		--include /home/${CURUSR}/.var \
-		--include /home/${CURUSR}/.kodi \
-		--include /home/${CURUSR}/.steam \
-		--include /home/${CURUSR}/.local/share/Steam \
-		--include /home/${CURUSR}/.wine \
-		--include /home/${CURUSR}/Pictures \
-		--include /home/${CURUSR}/.thunderbird \
-		--include /home/${CURUSR}/.gnupg \
-		--exclude /home/${CURUSR} \
-		/home/${CURUSR} ${DATADIRPATH}" "$CURUSR"
+	if [ "$RDIFBACK" = y ] ; then
+		su -c "rdiff-backup \
+			--include /home/${CURUSR}/.var \
+			--include /home/${CURUSR}/.kodi \
+			--include /home/${CURUSR}/.steam \
+			--include /home/${CURUSR}/.local/share/Steam \
+			--include /home/${CURUSR}/.wine \
+			--include /home/${CURUSR}/Pictures \
+			--include /home/${CURUSR}/.thunderbird \
+			--include /home/${CURUSR}/.gnupg \
+			--exclude /home/${CURUSR} \
+			/home/${CURUSR} ${DATADIRPATH}" "$CURUSR"
 
 	# stage 5 clean rdiff-backups of unchanging data
 
-	su -c "rdiff-backup \
-		--remove-older-than ${RDIFKEEP} \
-		${DATADIRPATH}" "$CURUSR"
+		su -c "rdiff-backup \
+			--remove-older-than ${RDIFKEEP} \
+			${DATADIRPATH}" "$CURUSR"
+	
+	fi
 done
 
 # end script #
