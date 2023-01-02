@@ -120,13 +120,6 @@ for user in /home/* ; do
 	# changed data
 
 	which rdiff-backup && RDIFFBACK=y
-	
-	[ -f "$DIRBLOCKTMP" ] && rm "$DIRBLOCKTMP"
-	
-	echo "$DIRECBLOCK" | while read line ; do
-		echo "/home/${CURUSR}/${line}" >> "$DIRBLOCKTMP"
-	done
-	echo "- /home/${CURUSR}/**" >> "$DIRBLOCKTMP"
 
 	if [ "$RDIFFBACK" = y ] ; then
 		[ -f "$DIRBLOCKTMP" ] && rm "$DIRBLOCKTMP"
