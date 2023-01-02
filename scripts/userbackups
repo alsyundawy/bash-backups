@@ -18,9 +18,21 @@ DESTPATH=/.localbackups/"$LOCALHN"
 DUPFULL=3
 # time to keep rdiff-backups before autoremoval
 RDIFKEEP=6W
-# directories to block from duplicity
-DIRECBLOCK=".kodi .var .steam .wine .gnupg .thunderbird .local/share/Steam \
-Videos Pictures Downloads"
+# directory block temp file
+DIRBLOCKTMP=/tmp/userbackups.ignore.tmp
+# directories  in user folders to block from duplicity and
+# do with rdiff-backup
+DIRECBLOCK=".kodi 
+.minecraft
+.var
+.steam 
+.wine 
+.gnupg 
+.thunderbird 
+.local/share/Steam 
+Videos 
+Pictures 
+Downloads"
 
 # begin script #
 
@@ -31,6 +43,9 @@ mountpoint $(dirname "$DESTPATH") || exit 1
 # make target directory as needed
 
 [ -d "$DESTPATH"/"$DISTVERSION" ] || mkdir -p "$DESTPATH"/"$DISTVERSION"
+
+# make temp file with duplicity ignored directories
+
 
 # loop through users in /home/*
 
@@ -52,7 +67,7 @@ for user in /home/* ; do
 
 	# make large data directory
 
-	DATADIRPATH=$(dirname "$BUDIRPATH")/DATA/"$CURUSR"
+	DATADIRPATH=$(dirname $(dirname "$BUDIRPATH"))/DATA/"$CURUSR"
 
 	if [ ! -d "$DATADIRPATH" ] ; then
 		mkdir -p "$DATADIRPATH"
@@ -105,17 +120,19 @@ for user in /home/* ; do
 	# changed data
 
 	which rdiff-backup && RDIFFBACK=y
+	
+	[ -f "$DIRBLOCKTMP" ] && rm "$DIRBLOCKTMP"
+	
+	echo "$DIRECBLOCK" | while read line ; do
+		echo "/home/${CURUSR}/${line}" >> "$DIRBLOCKTMP"
+	done
+	echo "- /home/${CURUSR}/**" >> "$DIRBLOCKTMP"
 
 	if [ "$RDIFFBACK" = y ] ; then
 		su -c "rdiff-backup \
-			--include /home/${CURUSR}/.var \
-			--include /home/${CURUSR}/.kodi \
-			--include /home/${CURUSR}/.steam \
-			--include /home/${CURUSR}/.local/share/Steam \
-			--include /home/${CURUSR}/.wine \
-			--include /home/${CURUSR}/Pictures \
-			--include /home/${CURUSR}/.thunderbird \
-			--include /home/${CURUSR}/.gnupg \
+			--exclude /home/${CURUSR}/Videos \
+			--exclude /home/${CURUSR}/Downloads \
+			--include-globbing-filelist \"${DIRBLOCKTMP}\" \
 			--exclude /home/${CURUSR} \
 			/home/${CURUSR} ${DATADIRPATH}" "$CURUSR"
 
@@ -124,7 +141,6 @@ for user in /home/* ; do
 		su -c "rdiff-backup \
 			--remove-older-than ${RDIFKEEP} \
 			${DATADIRPATH}" "$CURUSR"
-	
 	fi
 done
 
