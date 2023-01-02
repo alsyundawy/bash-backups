@@ -18,7 +18,7 @@ LOGLOC=/var/lvmtar/logs/"$NOW".lvmtar.log
 # volume group
 VGNAME=/dev/main
 # logical volumes to backup
-LVS="arch-var arch"
+LVS="ubuntu ubuntu-var"
 # how many backups to keep. will autoremove oldest once this number is reached
 BU2KEEP=3
 
@@ -63,7 +63,7 @@ for lv in $LVS ; do
 		--exclude "$TMPMNTDIR"/var/cache/apt/archives/* \
 		--exclude "$TMPMNTDIR"/var/lib/apt/lists/* \
 		--exclude "$TMPMNTDIR"/mnt/* \
-		--exclude "$TMPMNTDIR"/media/* \		
+		--exclude "$TMPMNTDIR"/media/* \
 		--exclude "$TMPMNTDIR"/proc/* \
 		--exclude "$TMPMNTDIR"/dev/* \
 		--exclude "$TMPMNTDIR"/sys/* \
