@@ -15,10 +15,12 @@ TMPMNTDIR=/tmp/lvmtar
 NOW=$(date +%F-%H%M)
 # log file
 LOGLOC=/var/lvmtar/logs/"$NOW".lvmtar.log
+# os branding
+DISTROTYPE=$(grep ^ID= /etc/os-release | cut -d= -f 2)
 # volume group
 VGNAME=/dev/main
 # logical volumes to backup
-LVS="ubuntu ubuntu-var"
+LVS="${DISTROTYPE} ${DISTROTYPE}-var"
 # how many backups to keep. will autoremove oldest once this number is reached
 BU2KEEP=3
 
