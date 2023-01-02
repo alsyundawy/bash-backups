@@ -36,6 +36,15 @@ Downloads"
 
 # begin script #
 
+# function #
+
+mk_bu_dir() {
+	if [ ! -d "$2" ] ; then
+		mkdir -p "$2"
+		chown "$1":"$1" "$2"
+	fi
+}
+
 # check if target mountpoint. prevents backing up to main drive
 
 mountpoint $(dirname "$DESTPATH") || exit 1
@@ -43,9 +52,6 @@ mountpoint $(dirname "$DESTPATH") || exit 1
 # make target directory as needed
 
 [ -d "$DESTPATH"/"$DISTVERSION" ] || mkdir -p "$DESTPATH"/"$DISTVERSION"
-
-# make temp file with duplicity ignored directories
-
 
 # loop through users in /home/*
 
@@ -60,21 +66,16 @@ for user in /home/* ; do
 	
 	# create backup directory and chown to proper user
 	
-	if [ ! -d "$BUDIRPATH" ] ; then
-		mkdir -p "$BUDIRPATH"
-		chown "$CURUSR":"$CURUSR" "$BUDIRPATH"
-	fi
+	mk_bu_dir "$CURUSR" "$BUDIRPATH"
 
 	# make large data directory
 
 	DATADIRPATH=$(dirname $(dirname "$BUDIRPATH"))/DATA/"$CURUSR"
 
-	if [ ! -d "$DATADIRPATH" ] ; then
-		mkdir -p "$DATADIRPATH"
-		chown "$CURUSR":"$CURUSR" "$DATADIRPATH"
-	fi
+	mk_bu_dir "$CURUSR" "$DATADIRPATH"
 
 	# normal folders to block from duplicity backup and done in rdiff-backup
+	# sourced from "$DIRECBLOCK"
 
 	for dir in $DIRECBLOCK ; do
 		CURDIR=/home/"$CURUSR"/"$dir"
@@ -103,17 +104,17 @@ for user in /home/* ; do
 			remove-all-but-n-full ${DUPFULL} \
 			--force \
 			file://${BUDIRPATH}" "$CURUSR"
-	fi
-	
-	# stage three. set deja-dup to target backup folder so user doesn't have to
-	# manually do it. this depends on deja-dup & dbus-x11 being installed
-	
-	which deja-dup && DEJABACK=y
-	
-	if [ "$DEJABACK" = y ] ; then
-		su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
-		dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
-		"$CURUSR"
+
+		# stage three. set deja-dup to target backup folder so user doesn't have to
+		# manually do it. this depends on deja-dup & dbus-x11 being installed
+
+		which deja-dup && DEJABACK=y
+
+		if [ "$DEJABACK" = y ] ; then
+			su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
+				dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
+				"$CURUSR"
+		fi
 	fi
 	
 	# stage 4 make sure rdiff-backup is installed & create backup of rarely 
@@ -122,11 +123,19 @@ for user in /home/* ; do
 	which rdiff-backup && RDIFFBACK=y
 
 	if [ "$RDIFFBACK" = y ] ; then
+		# remove temp file if exist
+
 		[ -f "$DIRBLOCKTMP" ] && rm "$DIRBLOCKTMP"
+
+		# create temp file for $CURUSR
+
 		echo "$DIRECBLOCK" | while read line ; do
 			echo "/home/${CURUSR}/${line}" >> "$DIRBLOCKTMP"
 		done
 		echo "- /home/${CURUSR}/**" >> "$DIRBLOCKTMP"
+
+		# rdiff only folders from above created temp file
+
 		su -c "rdiff-backup \
 			--exclude /home/${CURUSR}/Videos \
 			--exclude /home/${CURUSR}/Downloads \
@@ -134,7 +143,7 @@ for user in /home/* ; do
 			--exclude /home/${CURUSR} \
 			/home/${CURUSR} ${DATADIRPATH}" "$CURUSR"
 
-	# stage 5 clean rdiff-backups of unchanging data
+		# stage 5 clean rdiff-backups of unchanging data
 
 		su -c "rdiff-backup \
 			--remove-older-than ${RDIFKEEP} \
