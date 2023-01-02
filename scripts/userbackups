@@ -129,6 +129,11 @@ for user in /home/* ; do
 	echo "- /home/${CURUSR}/**" >> "$DIRBLOCKTMP"
 
 	if [ "$RDIFFBACK" = y ] ; then
+		[ -f "$DIRBLOCKTMP" ] && rm "$DIRBLOCKTMP"
+		echo "$DIRECBLOCK" | while read line ; do
+			echo "/home/${CURUSR}/${line}" >> "$DIRBLOCKTMP"
+		done
+		echo "- /home/${CURUSR}/**" >> "$DIRBLOCKTMP"
 		su -c "rdiff-backup \
 			--exclude /home/${CURUSR}/Videos \
 			--exclude /home/${CURUSR}/Downloads \
