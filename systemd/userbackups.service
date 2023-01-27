@@ -3,7 +3,7 @@ Description = Execute user directory backups
 
 [Service]
 Type = oneshot
-ExecStart = /usr/bin/systemd-inhibit --who=root --mode=block /usr/local/bin/userbackups
+ExecStart = /usr/bin/systemd-inhibit --who=root --mode=block /home/jason/bin/bash-backups/scripts/userbackups
 User = root
 Group = root
 

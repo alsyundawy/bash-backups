@@ -2,7 +2,7 @@
 Description = Run hourly backups of user directories
 
 [Timer]
-OnCalendar = 00/4:00
+OnCalendar = 00/8:00
 Persistent = true
 
 [Install]

@@ -3,7 +3,7 @@ Description = Execute system tarballs
 
 [Service]
 Type = oneshot
-ExecStart = /usr/bin/systemd-inhibit --who=root --mode=block /usr/local/bin/lvmtar
+ExecStart = /usr/bin/systemd-inhibit --who=root --mode=block /home/jason/bin/bash-backups/scripts/lvmtar
 User = root
 Group = root
 
