@@ -1,8 +1,8 @@
 [Unit]
-Description = Run hourly backups of user directories
+Description = Run backups of user directories 3 times daily
 
 [Timer]
-OnCalendar = 00/8:00
+OnCalendar = 00/6:00
 Persistent = true
 
 [Install]
