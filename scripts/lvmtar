@@ -18,7 +18,7 @@ LOGLOC=/var/lvmtar/logs/"$NOW".lvmtar.log
 # os branding
 DISTROTYPE=$(grep ^ID= /etc/os-release | cut -d= -f 2)
 # volume group
-VGNAME=/dev/main
+VGNAME=/dev/homewrecker
 # logical volumes to backup
 LVS="${DISTROTYPE} ${DISTROTYPE}-var"
 # how many backups to keep. will autoremove oldest once this number is reached
@@ -38,6 +38,10 @@ mountpoint $(dirname "$BACKUPDIR") || exit 1
 # loop through $LVS in turn
 
 for lv in $LVS ; do
+	# make backup directory
+
+	[ -d "$BACKUPDIR" ] || mkdir -p "$BACKUPDIR"
+
 	# snapshot failure to create
 
 	if ! lvcreate -n $(basename "$lv")-tartmp -s -L +5g "$VGNAME"/"$lv" ; then
@@ -106,7 +110,7 @@ for lv in $LVS ; do
 
 	# cleans old log files
 
-	find "$LOGLOC"/ -name '*.log' -mtime +30 -exec rm {} \;
+	find $(dirname "$LOGLOC")/ -name '*.log' -mtime +30 -exec rm {} \;
 done
 
 # end script #

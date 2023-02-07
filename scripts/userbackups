@@ -22,16 +22,12 @@ RDIFKEEP=6W
 DIRBLOCKTMP=/tmp/userbackups.ignore.tmp
 # directories  in user folders to block from duplicity and
 # do with rdiff-backup
-DIRECBLOCK=".kodi 
-.minecraft
-.var
-.steam 
-.wine 
-.gnupg 
-.thunderbird 
-.local/share/Steam 
-Videos 
-Pictures 
+DIRECBLOCK=".var
+.steam
+.gnupg
+.thunderbird
+Videos
+Pictures
 Downloads"
 
 # begin script #
@@ -58,14 +54,14 @@ mountpoint $(dirname "$DESTPATH") || exit 1
 for user in /home/* ; do
 	CURUSR=$(basename "$user")
 	BUDIRPATH="$DESTPATH"/"$DISTVERSION"/"$CURUSR"
-	
+
 	# confirm folder = real user and is not a stray folder. clonezilla creates
 	# a partimag folder in /home. this avoids such.
-	
+
 	grep "$CURUSR" < /etc/passwd || continue
-	
+
 	# create backup directory and chown to proper user
-	
+
 	mk_bu_dir "$CURUSR" "$BUDIRPATH"
 
 	# make large data directory
@@ -86,7 +82,7 @@ for user in /home/* ; do
 	# stage one create duplicity backup of small data
 	# .nobackup file in a given directory prevents it from being added to
 	# duplicity backup.
-	
+
 	which duplicity && DUPBACK=y
 
 	if [ "$DUPBACK" = y ] ; then
@@ -97,9 +93,9 @@ for user in /home/* ; do
 			--volsize=1024 \
 			/home/${CURUSR} \
 			file://${BUDIRPATH}" "$CURUSR"
-		
+
 		# stage two clean duplicity backups
-		
+
 		su -c "duplicity \
 			remove-all-but-n-full ${DUPFULL} \
 			--force \
@@ -116,7 +112,7 @@ for user in /home/* ; do
 				"$CURUSR"
 		fi
 	fi
-	
+
 	# stage 4 make sure rdiff-backup is installed & create backup of rarely 
 	# changed data
 
