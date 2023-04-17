@@ -16,29 +16,16 @@ LOCALHN=$(uname -n)
 DESTPATH=/.localbackups/"$LOCALHN"
 # number of full duplicity backups to keep before autoremoval
 DUPFULL=3
-# time to keep rdiff-backups before autoremoval
-RDIFKEEP=6W
-# directory block temp file
-DIRBLOCKTMP=/tmp/userbackups.ignore.tmp
-# directories  in user folders to block from duplicity and
-# do with rdiff-backup
-DIRECBLOCK=".var
-.steam
-.gnupg
-.thunderbird
-Videos
-Pictures
-Downloads"
 
 # begin script #
 
 # function #
 
 mk_bu_dir() {
-	if [ ! -d "$2" ] ; then
-		mkdir -p "$2"
-		chown "$1":"$1" "$2"
-	fi
+  if [ ! -d "$2" ] ; then
+    mkdir -p "$2"
+    chown "$1":"$1" "$2"
+  fi
 }
 
 # check if target mountpoint. prevents backing up to main drive
@@ -52,99 +39,38 @@ mountpoint $(dirname "$DESTPATH") || exit 1
 # loop through users in /home/*
 
 for user in /home/* ; do
-	CURUSR=$(basename "$user")
-	BUDIRPATH="$DESTPATH"/"$DISTVERSION"/"$CURUSR"
+  CURUSR=$(basename "$user")
+  BUDIRPATH="$DESTPATH"/"$DISTVERSION"/"$CURUSR"
+  # confirm folder = real user and is not a stray folder. clonezilla creates
+  # a partimag folder in /home. this avoids such.
+  grep "$CURUSR" < /etc/passwd || continue
+  # create backup directory and chown to proper user
+  mk_bu_dir "$CURUSR" "$BUDIRPATH"
+  
+  which duplicity && DUPBACK=y
+  
+  if [ "$DUPBACK" = y ] ; then
+    su -c "duplicity \
+    --full-if-older-than 30D \
+    --no-encryption \
+    --volsize=1024 \
+    /home/${CURUSR} \
+    file://${BUDIRPATH}" "$CURUSR"
+    # stage two clean duplicity backups
+    su -c "duplicity \
+      remove-all-but-n-full ${DUPFULL} \
+      --force \
+      file://${BUDIRPATH}" "$CURUSR"
 
-	# confirm folder = real user and is not a stray folder. clonezilla creates
-	# a partimag folder in /home. this avoids such.
-
-	grep "$CURUSR" < /etc/passwd || continue
-
-	# create backup directory and chown to proper user
-
-	mk_bu_dir "$CURUSR" "$BUDIRPATH"
-
-	# make large data directory
-
-	DATADIRPATH=$(dirname $(dirname "$BUDIRPATH"))/DATA/"$CURUSR"
-
-	mk_bu_dir "$CURUSR" "$DATADIRPATH"
-
-	# normal folders to block from duplicity backup and done in rdiff-backup
-	# sourced from "$DIRECBLOCK"
-
-	for dir in $DIRECBLOCK ; do
-		CURDIR=/home/"$CURUSR"/"$dir"
-		[ -d "$CURDIR" ] || su -c "mkdir -p ${CURDIR}" "$CURUSR"
-		[ -f "$CURDIR"/.nobackup ] || su -c "touch ${CURDIR}/.nobackup" "$CURUSR"
-	done
-
-	# stage one create duplicity backup of small data
-	# .nobackup file in a given directory prevents it from being added to
-	# duplicity backup.
-
-	which duplicity && DUPBACK=y
-
-	if [ "$DUPBACK" = y ] ; then
-		su -c "duplicity \
-			--exclude-if-present .nobackup \
-			--full-if-older-than 30D \
-			--no-encryption \
-			--volsize=1024 \
-			/home/${CURUSR} \
-			file://${BUDIRPATH}" "$CURUSR"
-
-		# stage two clean duplicity backups
-
-		su -c "duplicity \
-			remove-all-but-n-full ${DUPFULL} \
-			--force \
-			file://${BUDIRPATH}" "$CURUSR"
-
-		# stage three. set deja-dup to target backup folder so user doesn't have to
-		# manually do it. this depends on deja-dup & dbus-x11 being installed
-
-		which deja-dup && DEJABACK=y
-
-		if [ "$DEJABACK" = y ] ; then
-			su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
-				dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
-				"$CURUSR"
-		fi
-	fi
-
-	# stage 4 make sure rdiff-backup is installed & create backup of rarely 
-	# changed data
-
-	which rdiff-backup && RDIFFBACK=y
-
-	if [ "$RDIFFBACK" = y ] ; then
-		# remove temp file if exist
-
-		[ -f "$DIRBLOCKTMP" ] && rm "$DIRBLOCKTMP"
-
-		# create temp file for $CURUSR
-
-		echo "$DIRECBLOCK" | while read line ; do
-			echo "/home/${CURUSR}/${line}" >> "$DIRBLOCKTMP"
-		done
-		echo "- /home/${CURUSR}/**" >> "$DIRBLOCKTMP"
-
-		# rdiff only folders from above created temp file
-
-		su -c "rdiff-backup \
-			--exclude /home/${CURUSR}/Videos \
-			--exclude /home/${CURUSR}/Downloads \
-			--include-globbing-filelist \"${DIRBLOCKTMP}\" \
-			--exclude /home/${CURUSR} \
-			/home/${CURUSR} ${DATADIRPATH}" "$CURUSR"
-
-		# stage 5 clean rdiff-backups of unchanging data
-
-		su -c "rdiff-backup \
-			--remove-older-than ${RDIFKEEP} \
-			${DATADIRPATH}" "$CURUSR"
-	fi
+    # stage three. set deja-dup to target backup folder so user doesn't have to
+    # manually do it. this depends on deja-dup & dbus-x11 being installed
+    which deja-dup && DEJABACK=y
+	if [ "$DEJABACK" = y ] ; then
+      su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
+      dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
+      "$CURUSR"
+    fi
+  fi
 done
 
 # end script #
