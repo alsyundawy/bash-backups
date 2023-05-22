@@ -3,5 +3,9 @@
 BACKUPDIR=/snapraid/pool/backups/lan/homewrecker/"$USER"/
 
 find /home/"$USER"/ -maxdepth 1 | while read line ; do
-  rsync -auv --progress "$line" 192.168.1.2:"$BACKUPDIR"
+  rsync -auv \
+	--exclude .cache/deja-dup \
+	--exclude .cache/duplicity \
+	--exclude .local/share/Trash \
+	--progress "$line" 192.168.1.2:"$BACKUPDIR"
 done
