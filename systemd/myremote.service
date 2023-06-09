@@ -1,0 +1,9 @@
+[Unit]
+Description = Execute user directory backups
+
+[Service]
+Type = oneshot
+ExecStart = /home/jason/Documents/Git/bash-backups/scripts/myremote
+
+[Install]
+WantedBy = multi-user.target
