@@ -3,7 +3,7 @@ Description = Execute user directory backups
 
 [Service]
 Type = oneshot
-ExecStart = /home/jason/Documents/Git/bash-backups/scripts/userbackups
+ExecStart = /usr/local/bin/userbackups
 User = root
 Group = root
 
