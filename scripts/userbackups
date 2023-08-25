@@ -13,7 +13,7 @@ DISTVERSION=$(grep ^ID= /etc/os-release | cut -d= -f2)
 # hostname
 LOCALHN=$(uname -n)
 # backup target path
-DESTPATH=/.localbackups/"$LOCALHN"
+DESTPATH=/mnt/localbackups/"$LOCALHN"
 # number of full duplicity backups to keep before autoremoval
 DUPFULL=3
 
