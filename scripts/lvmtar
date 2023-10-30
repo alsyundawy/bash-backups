@@ -8,7 +8,7 @@ PATH="/usr/sbin:/usr/bin"
 # simple temp file for processing removal of backups more than $BU2KEEP
 TEMPFILE=/tmp/lvmtar.cleanup.tmp
 # target directory. mount is typically $(dirname "$BACKUPDIR")
-BACKUPDIR=/.localbackups/$(uname -n)
+BACKUPDIR=/mnt/localbackups/$(uname -n)
 # temp mount for lv snapshots for tar process
 TMPMNTDIR=/tmp/lvmtar
 # time of run
@@ -18,9 +18,9 @@ LOGLOC=/var/lvmtar/logs/"$NOW".lvmtar.log
 # os branding
 DISTROTYPE=$(grep ^ID= /etc/os-release | cut -d= -f 2)
 # volume group
-VGNAME=/dev/main
+VGNAME=/dev/homewrecker
 # logical volumes to backup
-LVS="${DISTROTYPE} ${DISTROTYPE}-var"
+LVS="mint mint-var"
 # how many backups to keep. will autoremove oldest once this number is reached
 BU2KEEP=3
 
