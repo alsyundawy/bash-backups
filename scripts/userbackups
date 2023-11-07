@@ -7,19 +7,23 @@
 # requires dbus-x11 for the gsettings commands.
 
 # variables
-
-# determine version of linux used
-DISTVERSION=$(grep ^ID= /etc/os-release | cut -d= -f2)
-# hostname
-LOCALHN=$(uname -n)
 # backup target path
-DESTPATH=/mnt/localbackups/"$LOCALHN"
+DESTPATH=/mnt/localbackups
 # number of full duplicity backups to keep before autoremoval
 DUPFULL=3
+# wow directory in bottles
+WOW=WoW
+# wtlib directory in bottles
+WTLIB=WatchtowerLibrary
 
-# begin script #
+# functions #
 
-# function #
+dup_inst_fail() {
+  if ! which duplicity ; then
+    echo "duplicity not installed. please install & try again"
+    exit
+  fi
+}
 
 mk_bu_dir() {
   if [ ! -d "$2" ] ; then
@@ -28,50 +32,103 @@ mk_bu_dir() {
   fi
 }
 
-# check if target mountpoint. prevents backing up to main drive
+usr_bu_dup() { # working
+  dup_inst_fail
+  mk_bu_dir "$1" "$2"
+  su -c "duplicity \
+    --full-if-older-than 30D \
+    --no-encryption \
+    --volsize=256 \
+    --exclude-if-present .nobackup \
+    --exclude=/home/${1}/.var \
+    --exclude=/home/${1}/.local/share/Steam \
+    --exclude=/home/${1}/.steam \
+    --exclude=/home/${1}/.local/share/flatpak \
+    /home/${1} \
+    file://${2}" "$1"
+    # stage two clean duplicity backup
+  su -c "duplicity \
+      remove-all-but-n-full ${DUPFULL} \
+      --force \
+      file://${2}" "$1"
+}
 
-mountpoint $(dirname "$DESTPATH") || exit 1
+bottles_backup() {
+  # bottles data directory
+  BOT_DIR=/home/"$1"/.var/app/com.usebottles.bottles/data/bottles/bottles
 
-# make target directory as needed
+  if [ "$BOT_DIR" ] ; then
+    # world of warcraft
+    WOW_DIR="$BOT_DIR"/"$WOW"/drive_c/"Program Files (x86)"/"World of Warcraft"
+    if [ "$WOW_DIR" ] ; then
+      mk_bu_dir "$1" "$2"/"$WOW"
+      for i in _retail_ Data ; do
+        rsync -au --delete-during "$WOW_DIR"/"$i" "$2"/"$WOW"
+      done
+    fi
 
-[ -d "$DESTPATH"/"$DISTVERSION" ] || mkdir -p "$DESTPATH"/"$DISTVERSION"
+    # watchtower library  
+    WTLIB_DIR="$BOT_DIR"/"$WTLIB"
+    mk_bu_dir "$1" "$2"/"$WTLIB"
+    if [ "$WTLIB_DIR" ] ; then
+      rsync -au --delete-during "$WTLIB_DIR" "$2"
+    fi
+  fi
+}
 
-# loop through users in /home/*
+fp_backup() {
+  FP_DIR=/home/"$1"/.local/share/flatpak
 
-for user in /home/* ; do
-  CURUSR=$(basename "$user")
-  BUDIRPATH="$DESTPATH"/"$DISTVERSION"/"$CURUSR"
-  # confirm folder = real user and is not a stray folder. clonezilla creates
-  # a partimag folder in /home. this avoids such.
-  grep "$CURUSR" < /etc/passwd || continue
-  # create backup directory and chown to proper user
-  mk_bu_dir "$CURUSR" "$BUDIRPATH"
-  
-  which duplicity && DUPBACK=y
-  
-  if [ "$DUPBACK" = y ] ; then
+  if [ "$FP_DIR" ] ; then
+    mk_bu_dir "$1" "$2"/FLATPAK
+    rsync -au --delete-during "$FP_DIR" "$2"/FLATPAK/
+  fi
+
+  FP_DATA=/home/"$1"/.var
+
+  dup_inst_fail
+  if [ "$FP_DATA" ] ; then
+    mk_bu_dir "$1" "$2"/FLATPAK/DATA
     su -c "duplicity \
     --full-if-older-than 30D \
     --no-encryption \
     --volsize=512 \
     --exclude-if-present .nobackup \
-    /home/${CURUSR} \
-    file://${BUDIRPATH}" "$CURUSR"
+    ${FP_DATA} \
+    file://${2}/FLATPAK/DATA" "$1"
     # stage two clean duplicity backups
     su -c "duplicity \
       remove-all-but-n-full ${DUPFULL} \
       --force \
-      file://${BUDIRPATH}" "$CURUSR"
+      file://${2}/FLATPAK/DATA" "$1"
+  fi  
+}
 
-    # stage three. set deja-dup to target backup folder so user doesn't have to
-    # manually do it. this depends on deja-dup & dbus-x11 being installed
-    which deja-dup && DEJABACK=y
-	if [ "$DEJABACK" = y ] ; then
-      su -c "dbus-launch gsettings set org.gnome.DejaDup backend local && \
-      dbus-launch gsettings set org.gnome.DejaDup.Local folder ${BUDIRPATH}" \
-      "$CURUSR"
-    fi
+# begin script #
+
+which duplicity && DUPBACK=y
+if [ "$DUPBACK" = y ] ; then
+  # check if target mountpoint. prevents backing up to main drive
+  if ! mountpoint "$DESTPATH" ; then
+    echo "backup target not a mountpoint. exiting!"
+    exit
   fi
-done
+  # loop through users directories
+  for user in /home/* ; do
+      CURUSR=$(basename "$user")
+      # confirm folder = real user and is not a stray folder. clonezilla creates
+      # a partimag folder in /home. this avoids such.
+      grep "$CURUSR" < /etc/passwd > /dev/null || continue
+      # set backup path
+      BUDIRPATH="$DESTPATH"/"$CURUSR"
+
+      usr_bu_dup "$CURUSR" "$BUDIRPATH"
+      fp_backup "$CURUSR" "$DESTPATH"/BIGDATA/"$CURUSR"
+      bottles_backup "$CURUSR" "$DESTPATH"/BIGDATA/"$CURUSR"
+  done
+else 
+  echo "duplicity not installed. please install & try again"
+  exit
+fi
 
 # end script #
