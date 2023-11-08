@@ -18,9 +18,9 @@ LOGLOC=/var/lvmtar/logs/"$NOW".lvmtar.log
 # os branding
 DISTROTYPE=$(grep ^ID= /etc/os-release | cut -d= -f 2)
 # volume group
-VGNAME=/dev/homewrecker
+VGNAME=/dev/main
 # logical volumes to backup
-LVS="mint mint-var"
+LVS="arch arch-var"
 # how many backups to keep. will autoremove oldest once this number is reached
 BU2KEEP=3
 
