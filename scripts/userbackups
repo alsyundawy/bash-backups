@@ -3,7 +3,7 @@
 # variables #
 
 # backup target path
-DESTPATH=/mnt/localbackups
+DESTPATH=/backups/externalA
 # number of full duplicity backups to keep before autoremoval
 DUPFULL=3
 # big data locations
@@ -26,11 +26,6 @@ usr_bu_dup() { # working
       --no-encryption \
       --volsize=256 \
       --exclude-if-present .nobackup \
-      --exclude=/home/${1}/.var \
-      --exclude=/home/${1}/.local/share/Steam \
-      --exclude=/home/${1}/.steam \
-      --exclude=/home/${1}/.local/share/flatpak \
-      --exclude=/home/${1}/snap \
       --exclude=/home/${1}/Downloads \
       --exclude=/home/${1}/Videos \
       --exclude=/home/${1}/Music \
@@ -73,7 +68,11 @@ for user in /home/* ; do
   if [ "$UNAME" != root ] && \
      [ "$UNAME" != partimg ] && \
      [ "$UNAME" != lost+found ] ; then
+  if [ $(chage -l "$UNAME" | grep Last | awk '{print $8}') = changed ] ; then
+    continue
+  else
     usr_bu_dup "$UNAME" "$DESTPATH"/DUPDATA/"$UNAME"
-    big_data_bu "$UNAME" "$DESTPATH"/BIGDATA/"$UNAME"
+  fi
+#    big_data_bu "$UNAME" "$DESTPATH"/BIGDATA/"$UNAME"
   fi
 done

@@ -3,7 +3,7 @@ Description = Execute user directory backups
 
 [Service]
 Type = oneshot
-ExecStart = /usr/local/bin/userbackups
+ExecStart = /usr/local/bin/userbackups /backups/externalA
 User = root
 Group = root
 
